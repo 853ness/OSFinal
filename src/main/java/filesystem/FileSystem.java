@@ -146,7 +146,8 @@ public class FileSystem {
      * Add your Javadoc documentation for this method
      */
     public String read(int fileDescriptor) throws IOException {
-        if (fileDescriptor < 0 || fileDescriptor >= Disk.NUM_INODES);
+        if (fileDescriptor < 0 || fileDescriptor >= Disk.NUM_INODES)
+            throw new IOException("FileSystem:read: Invalid File descriptor");
         // TODO: Replace this line with your code
         return null;
     }
