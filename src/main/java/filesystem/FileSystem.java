@@ -29,8 +29,8 @@ public class FileSystem {
         for (int i = 0; i < Disk.NUM_INODES && !isCreated; i++) {
             tmpINode = diskDevice.readInode(i);
             String name = tmpINode.getFileName();
-            if (name.trim().equals(fileName)){
-                throw new IOException("FileSystem::create: "+fileName+
+            if (name.trim().equals(fileName)) {
+                throw new IOException("FileSystem::create: " + fileName +
                         " already exists");
             } else if (tmpINode.getFileName() == null) {
                 this.iNodeForFile = new INode();
@@ -130,8 +130,8 @@ public class FileSystem {
      * @throws IOException If disk is not accessible for writing
      */
     public void close(int fileDescriptor) throws IOException {
-        if (fileDescriptor != this.iNodeNumber){
-            throw new IOException("FileSystem::close: file descriptor, "+
+        if (fileDescriptor != this.iNodeNumber) {
+            throw new IOException("FileSystem::close: file descriptor, " +
                     fileDescriptor + " does not match file descriptor " +
                     "of open file");
         }
@@ -146,12 +146,44 @@ public class FileSystem {
      * Add your Javadoc documentation for this method
      */
     public String read(int fileDescriptor) throws IOException {
+        //validating the file descriptor
         if (fileDescriptor < 0 || fileDescriptor >= Disk.NUM_INODES)
             throw new IOException("FileSystem:read: Invalid File descriptor");
         // TODO: Replace this line with your code
-        return null;
-    }
 
+        INode inode = diskDevice.readInode(fileDescriptor);
+        if (inode == null || inode.getFileName() == null) {
+            throw new IOException("FileSystem::read: File does not exist for the given descriptor");
+        }
+
+        // Retrieve file size to determine the total number of bytes to read
+        int fileSize = inode.getSize();
+        if (fileSize <= 0) {
+            return ""; // File is empty
+        }
+
+        // Calculate the number of blocks needed to read the file
+        int numBlocks = (int) Math.ceil((double) fileSize / Disk.BLOCK_SIZE);
+
+        // Read data from each block and combine it into a single string
+        StringBuilder fileContent = new StringBuilder();
+        for (int i = 0; i < numBlocks; i++) {
+            int blockPointer = inode.getBlockPointer(i); // Get the block pointer at index i
+            if (blockPointer == -1) break; // End of valid blocks
+
+            // Read data from the block
+            byte[] blockData = diskDevice.readDataBlock(blockPointer);
+            if (blockData != null) {
+                int bytesToRead = Math.min(fileSize, Disk.BLOCK_SIZE); // Handle the last block's partial data
+                fileContent.append(new String(blockData, 0, bytesToRead));
+                fileSize -= bytesToRead; // Reduce the remaining file size to read
+            }
+        }
+
+        return fileContent.toString();
+
+
+    }
 
     /**
      * Add your Javadoc documentation for this method
