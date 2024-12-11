@@ -1,5 +1,7 @@
 package filesystem;
 
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
 import java.io.IOException;
 
 
@@ -155,9 +157,15 @@ public class FileSystem {
      * Add your Javadoc documentation for this method
      */
     public void write(int fileDescriptor, String data) throws IOException {
-
-        // TODO: Replace this line with your code
-
+        FileOutputStream fos = null;
+    try {
+        fos = new FileOutputStream(FileDescriptor.out);
+        fos.write(data.getBytes());
+    } finally {
+        if (fos != null) {
+            fos.close();
+        }
+    }
     }
 
 
