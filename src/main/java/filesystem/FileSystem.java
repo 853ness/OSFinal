@@ -161,6 +161,7 @@ public class FileSystem {
     /**
      * Add your Javadoc documentation for this method
      */
+
     private int[] allocateBlocksForFile(int iNodeNumber, int numBytes)
             throws IOException {
         int blocksNeeded = (int) Math.ceil((double) numBytes / Disk.BLOCK_SIZE);
@@ -196,19 +197,20 @@ public class FileSystem {
         // Update the free block list on disk
         diskDevice.writeFreeBlockList(freeListManager.getFreeBlockList());
 
-        // Update the block pointers in the INode for INode location
+        // Update the block pointers in the INode with new allocated blocks
         INode fileINode = diskDevice.readInode(iNodeNumber);
         for (int j = 0; j < blocksAllocated; j++) {
             fileINode.setBlockPointer(j, allocatedBlocks[j]);
         }
 
-        // Update the  filesize for the INode, write it back on to thedisk
+        // writing to disk the updated filesize for inode
         fileINode.setSize(numBytes);
         diskDevice.writeInode(fileINode, iNodeNumber);
 
         return allocatedBlocks;
 
     }
+
 
     /**
      * Add your Javadoc documentation for this method
