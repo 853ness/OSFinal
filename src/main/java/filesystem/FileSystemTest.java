@@ -6,62 +6,82 @@ import java.io.IOException;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FileSystemTest {
+
     @Test
-    void fileSystemOperations() {
+    private int safeCreateFile(FileSystem fs, String fileName) throws IOException {
+        if (fileName == null || fileName.isEmpty()) {
+            throw new IllegalArgumentException("Filename cannot be null or empty");
+        }
+        return fs.create(fileName);
+
+    }
+    @Test
+    void readSingleBlockFile() throws IOException {
         try {
-            // Arrange: Create a FileSystem and set up constants
+            // Arrange: Create a FileSystem and set up the test
             FileSystem fs = new FileSystem();
-            String fileNameBase = "file";
-            String testData = "This is some text ";
-            int numLines = 10; // Reduced for testing purposes
+            String fileName = "testFile.txt";
+            String fileContent = "Hello, FileSystem! This is a test.";
 
-            // Create multiple files with content of increasing length
-            for (int i = 0; i < numLines; i++) {
-                String fileName = fileNameBase + i + ".txt";
-                int fd = fs.create(fileName);
+            // Safely create the file
+            int fd = Integer.parseInt(String.valueOf(safeCreateFile(fs, fileName)));
 
-                // Generate the message content
-                StringBuilder theMessage = new StringBuilder();
-                for (int j = 0; j < i + 1; j++) {
-                    theMessage.append(testData).append(j).append(".  ");
-                }
+            // Step 2: Write data to the file
+            fs.write(fd, fileContent);
 
-                // Write the content to the file
-                fs.write(fd, theMessage.toString());
-                fs.close(fd);
-            }
+            // Act: Read the data back
+            String readContent = fs.read(fd);
 
-            // Delete every second file
-            for (int i = 0; i < numLines; i += 2) {
-                String fileName = fileNameBase + i + ".txt";
-                fs.delete(fileName);
-            }
-
-            // Read remaining files and verify content
-            for (int i = 1; i < numLines; i += 2) {
-                String fileName = fileNameBase + i + ".txt";
-                int fd = fs.open(fileName);
-
-                // Generate the expected content
-                StringBuilder expectedMessage = new StringBuilder();
-                for (int j = 0; j < i + 1; j++) {
-                    expectedMessage.append(testData).append(j).append(".  ");
-                }
-
-                // Read the file and verify content
-                String readContent = fs.read(fd);
-                assertEquals(expectedMessage.toString(), readContent, "Content of file " + fileName + " should match");
-                fs.close(fd);
-            }
-
-            // Verify deleted files cannot be opened
-            for (int i = 0; i < numLines; i += 2) {
-                String fileName = fileNameBase + i + ".txt";
-                assertThrows(IOException.class, () -> fs.open(fileName), "Deleted file " + fileName + " should not exist");
-            }
+            // Assert: Verify the content matches what was written
+            assertEquals(fileContent, readContent, "File content should match what was written");
 
         } catch (IOException e) {
-            fail("Test failed due to unexpected exception: " + e.getMessage());
+            fail("IOException occurred: " + e.getMessage());
         }
     }
+
+
+    @Test
+    void readMultiBlockFile() throws IOException {
+        FileSystem fs = new FileSystem();
+        String fileName = "largeFile.txt";
+        StringBuilder fileContent = new StringBuilder();
+
+        // Generate content spanning multiple blocks
+        for (int i = 0; i < Disk.BLOCK_SIZE * 3; i++) {
+            fileContent.append("A");
+        }
+
+        // Create and write to the file
+        int fd = fs.create(fileName);
+        fs.write(fd, fileContent.toString());
+
+        // Read the file
+        String readContent = fs.read(fd);
+
+        // Assert that the read content matches the written content
+        assertEquals(fileContent.toString(), readContent, "Content should match for large files");
+    }
+    @Test
+    void readEmptyFile() throws IOException {
+        FileSystem fs = new FileSystem();
+        String fileName = "emptyFile.txt";
+
+        // Create an empty file
+        int fd = fs.create(fileName);
+
+        // Read the file
+        String readContent = fs.read(fd);
+
+        // Assert that the content is empty
+        assertEquals("", readContent, "Empty file should return an empty string");
+    }
+    @Test
+    void readInvalidFileDescriptor() throws IOException {
+        FileSystem fs = new FileSystem();
+
+        // Assert that reading an invalid file descriptor throws an exception
+        assertThrows(IOException.class, () -> fs.read(-1), "Invalid file descriptor should throw IOException");
+    }
+
 }

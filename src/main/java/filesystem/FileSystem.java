@@ -22,6 +22,10 @@ public class FileSystem {
      * @throws IOException
      */
     public int create(String fileName) throws IOException {
+        if (fileName == null || fileName.isEmpty()) {
+            throw new IllegalArgumentException("Filename cannot be null or empty");
+        }
+
         INode tmpINode = null;
 
         boolean isCreated = false;
@@ -146,10 +150,10 @@ public class FileSystem {
      * Add your Javadoc documentation for this method
      */
     public String read(int fileDescriptor) throws IOException {
+        // TODO: Replace this line with your code
         //validating the file descriptor
         if (fileDescriptor < 0 || fileDescriptor >= Disk.NUM_INODES)
             throw new IOException("FileSystem:read: Invalid File descriptor");
-        // TODO: Replace this line with your code
 
         INode inode = diskDevice.readInode(fileDescriptor);
         if (inode == null || inode.getFileName() == null) {
@@ -165,25 +169,32 @@ public class FileSystem {
         // Calculate the number of blocks needed to read the file
         int numBlocks = (int) Math.ceil((double) fileSize / Disk.BLOCK_SIZE);
 
-        // Read data from each block and combine it into a single string
+        // Read the data blocks associated with the inode
         StringBuilder fileContent = new StringBuilder();
-        for (int i = 0; i < numBlocks; i++) {
-            int blockPointer = inode.getBlockPointer(i); // Get the block pointer at index i
-            if (blockPointer == -1) break; // End of valid blocks
+        int remainingBytes = fileSize;
+        for (int i = 0; i < INode.NUM_BLOCK_POINTERS; i++) {
+            // Get the block pointer for the current block
+            int blockPointer = inode.getBlockPointer(i);
+            if (blockPointer == -1) break; // No more valid block pointers
 
-            // Read data from the block
+            // Read the data block from the disk
             byte[] blockData = diskDevice.readDataBlock(blockPointer);
-            if (blockData != null) {
-                int bytesToRead = Math.min(fileSize, Disk.BLOCK_SIZE); // Handle the last block's partial data
-                fileContent.append(new String(blockData, 0, bytesToRead));
-                fileSize -= bytesToRead; // Reduce the remaining file size to read
-            }
+
+            // Determine how many bytes to read from this block
+            int bytesToRead = Math.min(remainingBytes, Disk.BLOCK_SIZE);
+
+            // Append the block data to the file content
+            fileContent.append(new String(blockData, 0, bytesToRead));
+
+            // Reduce the remaining bytes to read
+            remainingBytes -= bytesToRead;
         }
 
+        // Return the combined file content as a string
         return fileContent.toString();
-
-
     }
+
+
 
     /**
      * Add your Javadoc documentation for this method
