@@ -2,8 +2,8 @@ package filesystem;
 
 import java.io.IOException;
 
-
 public class FileSystem {
+
     private Disk diskDevice;
 
     private int iNodeNumber;
@@ -15,7 +15,8 @@ public class FileSystem {
         diskDevice.format();
     }
 
-    /***
+    /**
+     * *
      * Create a file with the name <code>fileName</code>
      *
      * @param fileName - name of the file to create
@@ -29,9 +30,9 @@ public class FileSystem {
         for (int i = 0; i < Disk.NUM_INODES && !isCreated; i++) {
             tmpINode = diskDevice.readInode(i);
             String name = tmpINode.getFileName();
-            if (name.trim().equals(fileName)){
-                throw new IOException("FileSystem::create: "+fileName+
-                        " already exists");
+            if (name.trim().equals(fileName)) {
+                throw new IOException("FileSystem::create: " + fileName
+                        + " already exists");
             } else if (tmpINode.getFileName() == null) {
                 this.iNodeForFile = new INode();
                 this.iNodeForFile.setFileName(fileName);
@@ -59,9 +60,8 @@ public class FileSystem {
         int inodeNumForDeletion = -1;
 
         /**
-         * Find the non-null named inode that matches,
-         * If you find it, set its file name to null
-         * to indicate it is unused
+         * Find the non-null named inode that matches, If you find it, set its
+         * file name to null to indicate it is unused
          */
         for (int i = 0; i < Disk.NUM_INODES && !isFound; i++) {
             tmpINode = diskDevice.readInode(i);
@@ -75,9 +75,10 @@ public class FileSystem {
             }
         }
 
-        /***
-         * If file found, go ahead and deallocate its
-         * blocks and null out the filename.
+        /**
+         * *
+         * If file found, go ahead and deallocate its blocks and null out the
+         * filename.
          */
         if (isFound) {
             deallocateBlocksForFile(inodeNumForDeletion);
@@ -89,8 +90,8 @@ public class FileSystem {
         }
     }
 
-
-    /***
+    /**
+     * *
      * Makes the file available for reading/writing
      *
      * @return
@@ -123,24 +124,23 @@ public class FileSystem {
         return this.fileDescriptor;
     }
 
-
-    /***
+    /**
+     * *
      * Closes the file
      *
      * @throws IOException If disk is not accessible for writing
      */
     public void close(int fileDescriptor) throws IOException {
-        if (fileDescriptor != this.iNodeNumber){
-            throw new IOException("FileSystem::close: file descriptor, "+
-                    fileDescriptor + " does not match file descriptor " +
-                    "of open file");
+        if (fileDescriptor != this.iNodeNumber) {
+            throw new IOException("FileSystem::close: file descriptor, "
+                    + fileDescriptor + " does not match file descriptor "
+                    + "of open file");
         }
         diskDevice.writeInode(this.iNodeForFile, this.iNodeNumber);
         this.iNodeForFile = null;
         this.fileDescriptor = -1;
         this.iNodeNumber = -1;
     }
-
 
     /**
      * Add your Javadoc documentation for this method
@@ -150,26 +150,64 @@ public class FileSystem {
         return null;
     }
 
-
     /**
      * Add your Javadoc documentation for this method
      */
     public void write(int fileDescriptor, String data) throws IOException {
 
         // TODO: Replace this line with your code
-
     }
-
 
     /**
      * Add your Javadoc documentation for this method
      */
     private int[] allocateBlocksForFile(int iNodeNumber, int numBytes)
             throws IOException {
+        int blocksNeeded = (int) Math.ceil((double) numBytes / Disk.BLOCK_SIZE);
+        int[] allocatedBlocks = new int[blocksNeeded];
+        int blocksAllocated = 0;
 
-        // TODO: replace this line with your code
+        // Read from the freeblocklist to view vacancies
+        byte[] freeBlockList = diskDevice.readFreeBlockList();
+        FreeBlockList freeListManager = new FreeBlockList();
+        freeListManager.setFreeBlockList(freeBlockList);
 
-        return null;
+        //add counter of free blocks and unavailable blocks???
+        // Allocate blocks
+        for (int i = 0; i < Disk.NUM_BLOCKS && blocksAllocated < blocksNeeded; i++) {
+            // Check if the block is free
+            int blockNum = i / 8;
+            int offset = i % 8;
+            if ((freeBlockList[blockNum] & (1 << offset)) == 0) { // Block is free
+                freeListManager.allocateBlock(i);
+                allocatedBlocks[blocksAllocated++] = i;
+            }
+        }
+
+        // checking the correct number of blocks has been allocated, printing a statement if blocks unavailable
+        if (blocksAllocated < blocksNeeded) {
+            System.out.println("Space Needed: " + blocksNeeded);
+            System.out.println("Space Available: " + blocksAllocated);
+            throw new IOException("FileSystem::allocateBlocksForFile: Number of blocks is unavailable!");
+
+            //System.out.println("Insufficient space available.");
+        }
+
+        // Update the free block list on disk
+        diskDevice.writeFreeBlockList(freeListManager.getFreeBlockList());
+
+        // Update the block pointers in the INode for INode location
+        INode fileINode = diskDevice.readInode(iNodeNumber);
+        for (int j = 0; j < blocksAllocated; j++) {
+            fileINode.setBlockPointer(j, allocatedBlocks[j]);
+        }
+
+        // Update the  filesize for the INode, write it back on to thedisk
+        fileINode.setSize(numBytes);
+        diskDevice.writeInode(fileINode, iNodeNumber);
+
+        return allocatedBlocks;
+
     }
 
     /**
@@ -180,5 +218,4 @@ public class FileSystem {
     }
 
     // You may add any private method after this comment
-
 }
