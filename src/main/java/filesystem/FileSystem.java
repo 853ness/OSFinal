@@ -4,7 +4,7 @@ import java.io.IOException;
 
 
 public class FileSystem {
-    private Disk diskDevice;
+    Disk diskDevice;
 
     private int iNodeNumber;
     private int fileDescriptor;
@@ -22,10 +22,6 @@ public class FileSystem {
      * @throws IOException
      */
     public int create(String fileName) throws IOException {
-        if (fileName == null || fileName.isEmpty()) {
-            throw new IllegalArgumentException("Filename cannot be null or empty");
-        }
-
         INode tmpINode = null;
 
         boolean isCreated = false;
@@ -33,10 +29,11 @@ public class FileSystem {
         for (int i = 0; i < Disk.NUM_INODES && !isCreated; i++) {
             tmpINode = diskDevice.readInode(i);
             String name = tmpINode.getFileName();
-            if (name.trim().equals(fileName)) {
-                throw new IOException("FileSystem::create: " + fileName +
-                        " already exists");
-            } else if (tmpINode.getFileName() == null) {
+
+            // The Fix: Add a null check before calling trim()
+            if (name != null && name.trim().equals(fileName)) {
+                throw new IOException("FileSystem::create: " + fileName + " already exists");
+            } else if (tmpINode.getFileName() == null) { // No need for trim() here since we already checked for null
                 this.iNodeForFile = new INode();
                 this.iNodeForFile.setFileName(fileName);
                 this.iNodeNumber = i;
@@ -50,6 +47,7 @@ public class FileSystem {
 
         return fileDescriptor;
     }
+
 
     /**
      * Removes the file
@@ -152,13 +150,10 @@ public class FileSystem {
     public String read(int fileDescriptor) throws IOException {
         // TODO: Replace this line with your code
         //validating the file descriptor
-        if (fileDescriptor < 0 || fileDescriptor >= Disk.NUM_INODES)
-            throw new IOException("FileSystem:read: Invalid File descriptor");
+        if (fileDescriptor != iNodeNumber|| this.iNodeForFile == null )
+            throw new IOException("FileSystem:read: Invalid or inode is null");
 
         INode inode = diskDevice.readInode(fileDescriptor);
-        if (inode == null || inode.getFileName() == null) {
-            throw new IOException("FileSystem::read: File does not exist for the given descriptor");
-        }
 
         // Retrieve file size to determine the total number of bytes to read
         int fileSize = inode.getSize();

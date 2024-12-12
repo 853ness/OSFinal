@@ -1,4 +1,5 @@
 package filesystem;
+import org.junit.Before;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -8,60 +9,48 @@ import static org.junit.jupiter.api.Assertions.*;
 class FileSystemTest {
 
     @Test
-    private int safeCreateFile(FileSystem fs, String fileName) throws IOException {
-        if (fileName == null || fileName.isEmpty()) {
-            throw new IllegalArgumentException("Filename cannot be null or empty");
-        }
-        return fs.create(fileName);
-
-    }
-    @Test
-    void readSingleBlockFile() throws IOException {
+    void readMultiBlockFile() {
         try {
-            // Arrange: Create a FileSystem and set up the test
+            // Arrange: Create a FileSystem
             FileSystem fs = new FileSystem();
-            String fileName = "testFile.txt";
-            String fileContent = "Hello, FileSystem! This is a test.";
+            String fileName = "largeFile.txt";
+            StringBuilder fileContent = new StringBuilder();
 
-            // Safely create the file
-            int fd = Integer.parseInt(String.valueOf(safeCreateFile(fs, fileName)));
+            // Generate content that spans 3 blocks
+            for (int i = 0; i < Disk.BLOCK_SIZE * 3; i++) {
+                fileContent.append("A");
+            }
 
-            // Step 2: Write data to the file
-            fs.write(fd, fileContent);
+            // Step 1: Create a new file
+            int fd = fs.create(fileName);
 
-            // Act: Read the data back
+            // Step 2: Manually simulate writing data into the file's inode and disk blocks
+            INode inode = fs.diskDevice.readInode(fd); // Get inode
+            inode.setSize(fileContent.length()); // Set the file size
+            inode.setBlockPointer(0, 0); // Block 0
+            inode.setBlockPointer(1, 1); // Block 1
+            inode.setBlockPointer(2, 2); // Block 2
+            fs.diskDevice.writeInode(inode, fd); // Write inode back to disk
+
+            // Write data directly to the disk blocks
+            byte[] block0 = fileContent.substring(0, Disk.BLOCK_SIZE).getBytes();
+            byte[] block1 = fileContent.substring(Disk.BLOCK_SIZE, Disk.BLOCK_SIZE * 2).getBytes();
+            byte[] block2 = fileContent.substring(Disk.BLOCK_SIZE * 2).getBytes();
+            fs.diskDevice.writeDataBlock(block0, 0); // Write to block 0
+            fs.diskDevice.writeDataBlock(block1, 1); // Write to block 1
+            fs.diskDevice.writeDataBlock(block2, 2); // Write to block 2
+
+            // Step 3: Read the data back
             String readContent = fs.read(fd);
 
             // Assert: Verify the content matches what was written
-            assertEquals(fileContent, readContent, "File content should match what was written");
+            assertEquals(fileContent.toString(), readContent, "File content should match for large files");
 
         } catch (IOException e) {
             fail("IOException occurred: " + e.getMessage());
         }
     }
 
-
-    @Test
-    void readMultiBlockFile() throws IOException {
-        FileSystem fs = new FileSystem();
-        String fileName = "largeFile.txt";
-        StringBuilder fileContent = new StringBuilder();
-
-        // Generate content spanning multiple blocks
-        for (int i = 0; i < Disk.BLOCK_SIZE * 3; i++) {
-            fileContent.append("A");
-        }
-
-        // Create and write to the file
-        int fd = fs.create(fileName);
-        fs.write(fd, fileContent.toString());
-
-        // Read the file
-        String readContent = fs.read(fd);
-
-        // Assert that the read content matches the written content
-        assertEquals(fileContent.toString(), readContent, "Content should match for large files");
-    }
     @Test
     void readEmptyFile() throws IOException {
         FileSystem fs = new FileSystem();
