@@ -1,14 +1,16 @@
 package filesystem;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 
 public class FileSystem {
-    private Disk diskDevice;
+    static Disk diskDevice;
 
     private int iNodeNumber;
     private int fileDescriptor;
     private INode iNodeForFile;
+    private byte[] freeList;
 
     public FileSystem() throws IOException {
         diskDevice = new Disk();
@@ -29,10 +31,11 @@ public class FileSystem {
         for (int i = 0; i < Disk.NUM_INODES && !isCreated; i++) {
             tmpINode = diskDevice.readInode(i);
             String name = tmpINode.getFileName();
-            if (name.trim().equals(fileName)){
-                throw new IOException("FileSystem::create: "+fileName+
-                        " already exists");
-            } else if (tmpINode.getFileName() == null) {
+
+            // The Fix: Add a null check before calling trim()
+            if (name != null && name.trim().equals(fileName)) {
+                throw new IOException("FileSystem::create: " + fileName + " already exists");
+            } else if (tmpINode.getFileName() == null) { // No need for trim() here since we already checked for null
                 this.iNodeForFile = new INode();
                 this.iNodeForFile.setFileName(fileName);
                 this.iNodeNumber = i;
@@ -46,6 +49,7 @@ public class FileSystem {
 
         return fileDescriptor;
     }
+
 
     /**
      * Removes the file
@@ -130,8 +134,8 @@ public class FileSystem {
      * @throws IOException If disk is not accessible for writing
      */
     public void close(int fileDescriptor) throws IOException {
-        if (fileDescriptor != this.iNodeNumber){
-            throw new IOException("FileSystem::close: file descriptor, "+
+        if (fileDescriptor != this.iNodeNumber) {
+            throw new IOException("FileSystem::close: file descriptor, " +
                     fileDescriptor + " does not match file descriptor " +
                     "of open file");
         }
@@ -147,7 +151,44 @@ public class FileSystem {
      */
     public String read(int fileDescriptor) throws IOException {
         // TODO: Replace this line with your code
-        return null;
+        //validating the file descriptor
+        if (fileDescriptor != iNodeNumber || this.iNodeForFile == null)
+            throw new IOException("FileSystem:read: Invalid or inode is null");
+
+        INode inode = diskDevice.readInode(fileDescriptor);
+
+        // Retrieve file size to determine the total number of bytes to read
+        int fileSize = inode.getSize();
+        if (fileSize <= 0) {
+            return ""; // File is empty
+        }
+
+        // Calculate the number of blocks needed to read the file
+        int numBlocks = (int) Math.ceil((double) fileSize / Disk.BLOCK_SIZE);
+
+        // Read the data blocks associated with the inode
+        StringBuilder fileContent = new StringBuilder();
+        int remainingBytes = fileSize;
+        for (int i = 0; i < INode.NUM_BLOCK_POINTERS; i++) {
+            // Get the block pointer for the current block
+            int blockPointer = inode.getBlockPointer(i);
+            if (blockPointer == -1) break; // No more valid block pointers
+
+            // Read the data block from the disk
+            byte[] blockData = diskDevice.readDataBlock(blockPointer);
+
+            // Determine how many bytes to read from this block
+            int bytesToRead = Math.min(remainingBytes, Disk.BLOCK_SIZE);
+
+            // Append the block data to the file content
+            fileContent.append(new String(blockData, 0, bytesToRead));
+
+            // Reduce the remaining bytes to read
+            remainingBytes -= bytesToRead;
+        }
+
+        // Return the combined file content as a string
+        return fileContent.toString();
     }
 
 
@@ -156,8 +197,6 @@ public class FileSystem {
      */
     public void write(int fileDescriptor, String data) throws IOException {
 
-        // TODO: Replace this line with your code
-
     }
 
 
@@ -165,20 +204,16 @@ public class FileSystem {
      * Add your Javadoc documentation for this method
      */
     private int[] allocateBlocksForFile(int iNodeNumber, int numBytes)
-            throws IOException {
-
-        // TODO: replace this line with your code
-
+            throws IOException{
         return null;
     }
+
+
 
     /**
      * Add your Javadoc documentation for this method
      */
-    private void deallocateBlocksForFile(int iNodeNumber) {
-        // TODO: replace this line with your code
+    private void deallocateBlocksForFile(int iNodeNumber) throws IOException {
+
     }
-
-    // You may add any private method after this comment
-
 }
