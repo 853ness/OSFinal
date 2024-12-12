@@ -1,14 +1,16 @@
 package filesystem;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 
 public class FileSystem {
-    Disk diskDevice;
+    static Disk diskDevice;
 
     private int iNodeNumber;
     private int fileDescriptor;
     private INode iNodeForFile;
+    private byte[] freeList;
 
     public FileSystem() throws IOException {
         diskDevice = new Disk();
@@ -150,7 +152,7 @@ public class FileSystem {
     public String read(int fileDescriptor) throws IOException {
         // TODO: Replace this line with your code
         //validating the file descriptor
-        if (fileDescriptor != iNodeNumber|| this.iNodeForFile == null )
+        if (fileDescriptor != iNodeNumber || this.iNodeForFile == null)
             throw new IOException("FileSystem:read: Invalid or inode is null");
 
         INode inode = diskDevice.readInode(fileDescriptor);
@@ -190,13 +192,10 @@ public class FileSystem {
     }
 
 
-
     /**
      * Add your Javadoc documentation for this method
      */
     public void write(int fileDescriptor, String data) throws IOException {
-
-        // TODO: Replace this line with your code
 
     }
 
@@ -205,20 +204,16 @@ public class FileSystem {
      * Add your Javadoc documentation for this method
      */
     private int[] allocateBlocksForFile(int iNodeNumber, int numBytes)
-            throws IOException {
-
-        // TODO: replace this line with your code
-
+            throws IOException{
         return null;
     }
+
+
 
     /**
      * Add your Javadoc documentation for this method
      */
-    private void deallocateBlocksForFile(int iNodeNumber) {
-        // TODO: replace this line with your code
+    private void deallocateBlocksForFile(int iNodeNumber) throws IOException {
+
     }
-
-    // You may add any private method after this comment
-
 }
