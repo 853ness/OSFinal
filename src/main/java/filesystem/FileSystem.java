@@ -156,16 +156,52 @@ public class FileSystem {
     /**
      * Add your Javadoc documentation for this method
      */
-    public void write(int fileDescriptor, String data) throws IOException {
-        FileOutputStream fos = null;
-    try {
-        fos = new FileOutputStream(FileDescriptor.out);
-        fos.write(data.getBytes());
-    } finally {
-        if (fos != null) {
-            fos.close();
+   public void write(int fileDescriptor, String data) throws IOException {
+        if (fileDescriptor != this.iNodeNumber || this.iNodeForFile == null) {
+            throw new IOException("FileSystem::write: Invalid file descriptor or inode is null.");
         }
-    }
+
+        byte[] dataBytes = data.getBytes();
+        int dataSize = dataBytes.length;
+        int requiredBlocks = (int) Math.ceil((double) dataSize / Disk.BLOCK_SIZE);
+
+        // Deallocate existing blocks
+        deallocateBlocksForFile(this.iNodeNumber);
+
+        // Allocate new blocks
+        byte[] freeBlockList = diskDevice.readFreeBlockList();
+        int[] allocatedBlocks = new int[requiredBlocks];
+        int count = 0;
+
+        for (int i = 0; i < Disk.NUM_BLOCKS && count < requiredBlocks; i++) {
+            if ((freeBlockList[i / 8] & (1 << (i % 8))) == 0) { // Block is free
+                allocatedBlocks[count++] = i;
+                freeBlockList[i / 8] |= (1 << (i % 8)); // Mark block as used
+            }
+        }
+
+        if (count < requiredBlocks) {
+            throw new IOException("FileSystem::allocateBlocksForFile: Number of blocks is unavailable!");
+        }
+
+        // Write data to allocated blocks
+        for (int i = 0; i < allocatedBlocks.length; i++) {
+            byte[] blockData = new byte[Disk.BLOCK_SIZE];
+            int start = i * Disk.BLOCK_SIZE;
+            int length = Math.min(dataSize - start, Disk.BLOCK_SIZE);
+            System.arraycopy(dataBytes, start, blockData, 0, length);
+            diskDevice.writeDataBlock(blockData, allocatedBlocks[i]);
+        }
+
+        // Update inode
+        for (int i = 0; i < allocatedBlocks.length; i++) {
+            this.iNodeForFile.setBlockPointer(i, allocatedBlocks[i]);
+        }
+        this.iNodeForFile.setSize(dataSize);
+
+        // Write updates to disk
+        diskDevice.writeFreeBlockList(freeBlockList);
+        diskDevice.writeInode(this.iNodeForFile, this.iNodeNumber);
     }
 
 
