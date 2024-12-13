@@ -98,6 +98,25 @@ class FileSystemTest {
         // Verify the exception message
         assertEquals("FileSystem::allocateBlocksForFile: Number of blocks is unavailable!", exception.getMessage());
     }
+    @Test
+    void testDeallocateBlockSuccessfully() {
+        // Arrange: Create a FreeBlockList and simulate an allocated block
+        FreeBlockList freeBlockList = new FreeBlockList();
+        byte[] freeList = new byte[Disk.BYTES_IN_FREE_SPACE_LIST];
+        freeBlockList.setFreeBlockList(freeList);
+
+        int blockToAllocate = 5;
+        freeList[blockToAllocate / 8] |= (1 << (blockToAllocate % 8)); // Mark block as allocated
+        assertTrue((freeList[blockToAllocate / 8] & (1 << (blockToAllocate % 8))) != 0,
+                "Block should be allocated before deallocation");
+
+        // Act: Deallocate the block
+        freeBlockList.deallocateBlock(blockToAllocate);
+
+        // Assert: Verify the block is deallocated
+        assertFalse((freeList[blockToAllocate / 8] & (1 << (blockToAllocate % 8))) != 0,
+                "Block should be deallocated");
+    }
 
 }
 
