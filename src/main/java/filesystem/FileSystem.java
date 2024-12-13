@@ -255,10 +255,54 @@ public class FileSystem {
     /**
      * Add your Javadoc documentation for this method
      */
-    private void deallocateBlocksForFile(int iNodeNumber) {
-        // TODO: replace this line with your code
-    }
+  private void deallocateBlocksForFile(int iNodeNumber) throws IOException {
+        // Validate the inode number
+        if (iNodeNumber < 0 || iNodeNumber >= Disk.NUM_INODES) {
+            throw new IOException("FileSystem::deallocateBlocksForFile: Invalid inode number: " + iNodeNumber);
+        }
 
+        // Read the inode from the disk
+        INode inode = diskDevice.readInode(iNodeNumber);
+        if (inode == null) {
+            throw new IOException("FileSystem::deallocateBlocksForFile: Inode is null for inode number: " + iNodeNumber);
+        }
+
+        // Read the free block list from the disk
+        byte[] freeBlockList = diskDevice.readFreeBlockList();
+
+        // Iterate over the inode's block pointers
+        for (int i = 0; i < INode.NUM_BLOCK_POINTERS; i++) {
+            int blockNumber = inode.getBlockPointer(i);
+            if (blockNumber == -1) {
+                // No more blocks allocated to this file, exit loop
+                break;
+            }
+
+            // Calculate the byte index and bit index for the block
+            int byteIndex = blockNumber / 8;
+            int bitIndex = blockNumber % 8;
+
+            // Check if the block is already free
+            if ((freeBlockList[byteIndex] & (1 << bitIndex)) == 0) {
+                // Block is already free; log the event and continue
+                System.out.println("Block " + blockNumber + " is already free.");
+                continue;
+            }
+
+            // Deallocate the block by clearing its bit
+            freeBlockList[byteIndex] &= ~(1 << bitIndex);
+
+            // Clear the block pointer in the inode
+            inode.setBlockPointer(i, -1);
+
+            // Log the deallocation
+            System.out.println("Block " + blockNumber + " deallocated successfully.");
+        }
+
+        // Write the updated free block list and inode back to the disk
+        diskDevice.writeFreeBlockList(freeBlockList);
+        diskDevice.writeInode(inode, iNodeNumber);
+    }
     // You may add any private method after this comment
 
 }
